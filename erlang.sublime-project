@@ -1,0 +1,30 @@
+{
+	"folders":
+	[
+		{
+			"path": ".",
+			"name":"Root",
+			"file_exclude_patterns": ["*.pdf"],
+			"folder_exclude_patterns": ["beam", "src"]
+		},
+		{
+			"path": "./src",
+			"name": "Source"
+		}
+	],
+	"build_systems":
+	[
+		{
+			"selector": "source.erlang",
+
+			"cmd": ["make"],
+			"name": "Compile",
+			"working_dir": "${project_path}",
+
+			// "name":"Run",
+			// "target": "run_existing_window_command",
+			// "id": "repl_erlang",
+			// "file": "config/Erlang/Main.sublime-menu"
+		}
+	]
+}
