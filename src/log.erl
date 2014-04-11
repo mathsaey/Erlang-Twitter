@@ -11,18 +11,15 @@
 -module(log).
 -export([start/0, info/1, info/2, warn/1, warn/2, err/1, err/2]).
 
-% Logger name
-const_name() -> twitter_logger.
-
-% Output file
-const_file() -> "../twitter.log".
+-define(LOG_NAME, twitter_logger).
+-define(OUTPUT_FILE, "../twitter.log").
 
 % -------- %
 % External %
 % -------- %
 
 % Log a message.
-log(Level, Message, Args) -> get_logger() ! {const_name(), Level, Message, Args}.
+log(Level, Message, Args) -> ?LOG_NAME ! {self(), Level, Message, Args}.
 
 % Log a message with a severity level.
 %
@@ -45,11 +42,11 @@ err(Message, Args)  -> log("ERR!", Message, Args), ok.
 % -------- %
 
 % Start the logger.
-start() -> register(const_name(), spawn(fun() -> log_loop() end)).
+start() -> register(?LOG_NAME, spawn(fun() -> log_loop() end)).
 
 % Open the output file and start the actual logging.
 log_loop() ->
-	{_, File} = file:open(const_file(), [delayed_write, write]),
+	{_, File} = file:open(?OUTPUT_FILE, [delayed_write, write]),
 	log_loop(File).
 
 % Main loop of the logger.
