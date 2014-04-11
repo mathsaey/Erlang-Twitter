@@ -36,7 +36,6 @@ log(Level, Message, Args) -> get_logger() ! {self(), Level, Message, Args}.
 %	The Message argument should be a format string
 %	if arguments are provided.
 
-
 info(Message) -> info(Message, []).
 warn(Message) -> warn(Message, []).
 err(Message) -> err(Message, []).
