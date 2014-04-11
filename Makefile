@@ -17,7 +17,7 @@ SRC_FILES  = $(wildcard $(INPUT_DIR)*.erl)
 BEAM_FILES = $(foreach file, $(SRC_FILES), $(file:$(INPUT_DIR)%.erl=$(OUTPUT_DIR)%.beam))
 BEAM_DIRS  = $(sort $(dir $(BEAM_FILES)))
 
-COMPILE_INVOCATION = erlc -I $(INPUT_DIR) -o $(dir $@)
+COMPILE_INVOCATION = erlc +debug_info -I $(INPUT_DIR) -o $(dir $@)
 
 ###########
 # Targets #
