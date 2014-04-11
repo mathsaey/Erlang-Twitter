@@ -8,7 +8,7 @@
 % logging messages. It doesn't need to scale or be fast.
 % It only needs to ensure other processes are not delayed by logging.
 
--module(logger).
+-module(log).
 -export([start/0, info/1, info/2, warn/1, warn/2, err/1, err/2]).
 
 % Logger name
