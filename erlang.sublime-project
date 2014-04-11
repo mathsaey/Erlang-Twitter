@@ -5,11 +5,12 @@
 			"path": ".",
 			"name":"Root",
 			"file_exclude_patterns": ["*.pdf"],
-			"folder_exclude_patterns": ["beam", "src"]
+			"folder_exclude_patterns": ["src"],
 		},
 		{
 			"path": "./src",
-			"name": "Source"
+			"name": "Source",
+			"file_exclude_patterns": ["*.beam"]
 		}
 	],
 	"build_systems":
