@@ -17,15 +17,12 @@ const_name() -> twitter_logger.
 % Output file
 const_file() -> "../twitter.log".
 
-% Get the Pid of the logger.
-get_logger() -> whereis(const_name()).
-
 % -------- %
 % External %
 % -------- %
 
 % Log a message.
-log(Level, Message, Args) -> get_logger() ! {self(), Level, Message, Args}.
+log(Level, Message, Args) -> get_logger() ! {const_name(), Level, Message, Args}.
 
 % Log a message with a severity level.
 %
