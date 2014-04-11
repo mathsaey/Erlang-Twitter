@@ -7,7 +7,11 @@
 #############
 
 INPUT_DIR  = src/
-OUTPUT_DIR = beam/
+OUTPUT_DIR = src/
+ 
+# Use if you want your .beam files in a 
+# seperate directory (e.g. for a release)
+# OUTPUT_DIR = beam/
 
 SRC_FILES  = $(wildcard $(INPUT_DIR)*.erl)
 BEAM_FILES = $(foreach file, $(SRC_FILES), $(file:$(INPUT_DIR)%.erl=$(OUTPUT_DIR)%.beam))
@@ -26,7 +30,6 @@ directory:
 
 clean:
 	- rm $(BEAM_FILES)
-	- rm -r $(BEAM_DIRS)
 
 .PHONY: clean
 
