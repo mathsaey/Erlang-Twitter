@@ -38,10 +38,10 @@ log(Level, Message, Args) -> get_logger() ! {self(), Level, Message, Args}.
 
 info(Message) -> info(Message, []).
 warn(Message) -> warn(Message, []).
-err(Message) -> err(Message, []).
+err(Message)  -> err(Message, []).
 info(Message, Args) -> log("INFO", Message, Args), ok.
 warn(Message, Args) -> log("WARN", Message, Args), ok.
-err(Message, Args)   -> log("ERR!", Message, Args), ok.
+err(Message, Args)  -> log("ERR!", Message, Args), ok.
 
 % -------- %
 % Internal %
