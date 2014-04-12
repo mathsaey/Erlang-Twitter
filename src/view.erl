@@ -11,7 +11,7 @@
 % When a view receives too many requests, it dynamically creates
 % new copies of itself.
 
-% The data that a vies contains is simply a list of elements.
+% The data that a view contains is simply a list of elements.
 % The view does not care about the exact semantics of these elements.
 
 % TODO: Make read use pages for shorter replies (perhaps use a seperat process for this).
@@ -19,7 +19,11 @@
 
 -module(view).
 -export([start/0]).
--export([read/3, update/2]).
+-export([read/4, update/2]).
+
+% The amount of elements on a
+% single page.
+-define(PAGE_LENGTH, 3).
 
 % -------- %
 % Requests %
@@ -35,7 +39,7 @@
 %	A tag (an atom) that will be added to the reply.
 %	sent to DestPid
 %
-read(ViewPid, DestPid, Tag) -> ViewPid ! {read, DestPid, Tag}, ok.
+read(ViewPid, DestPid, Tag, Page) -> ViewPid ! {read, DestPid, Tag, Page}, ok.
 
 % Update the contents of a view.
 %
@@ -51,7 +55,25 @@ update(ViewPid, Content) -> ViewPid ! {update, Content}, ok.
 % --------------------- %
 
 % Send data to a destination.
-send_data(Dest, Tag, Data) -> Dest ! {Tag, Data}.
+%
+% Dest
+%	The destination to send the data to.
+% Tag
+%	The tag to add to the message send.
+% Data
+%	The complete dataset
+% Page 
+%	The page to fetch.
+%	Fetches __all__ the data if the page is 0.
+%	An empty list is returned if the page does not exist.
+%
+send_data(Dest, Tag, Data, 0) -> Dest ! {Tag, Data};
+send_data(Dest, Tag, Data, Page) -> 
+	Page_content = 
+		try   lists:sublist(Data, Page * ?PAGE_LENGTH, ?PAGE_LENGTH)
+		catch error:function_clause -> [] 
+		end,
+	Dest ! {Tag, Page_content}.
 
 % Add new data to old data.
 %
@@ -64,15 +86,6 @@ update_data(Old, New) -> [New] ++ Old.
 % --------------- %
 % Dynamic Scaling %
 % --------------- %
-
-% Duplicate a view.
-% Effectively creates a new view
-% with identical data.
-%
-% Data
-%	The data of a view.
-%
-duplicate(Data) -> start(Data).
 
 % ---------------- %
 % Request Handling %
@@ -87,6 +100,10 @@ start(Data) -> spawn(fun() -> view_loop(Data) end).
 % View actor loop.
 view_loop(Data) ->
 	receive
-		{read, Dest, Tag} -> send_data(Dest, Tag, Data), view_loop(Data);
-		{update, Content} -> view_loop(update_data(Data, Content))
+		{read, Dest, Tag, Page} -> 
+			send_data(Dest, Tag, Data, Page), 
+			view_loop(Data);
+		{update, Content} -> 
+			New_Data = update_data(Data, Content),
+			view_loop(New_Data)
 	end.
