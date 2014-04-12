@@ -75,5 +75,5 @@ user_id(User) -> User#user.id.
 %	A user id.
 user_add_sub(User, Sub) ->
 	Subs = user_subs(User),
-	New  = Subs ++ [Sub],
+	New  = [Sub] ++ Subs,
 	User#user{subscriptions = New}.
