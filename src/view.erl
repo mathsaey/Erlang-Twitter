@@ -68,8 +68,9 @@ update(ViewPid, Content) -> ViewPid ! {update, Content}, ok.
 send_data(Dest, Tag, Data, 0) -> Dest ! {Tag, Data};
 send_data(Dest, Tag, Data, 1) -> Dest ! {Tag, lists:sublist(Data, ?PAGE_LENGTH)};
 send_data(Dest, Tag, Data, Page) -> 
+	Start_idx = ((Page - 1) * ?PAGE_LENGTH) + 1,
 	Page_content = 
-		try   lists:sublist(Data, (Page - 1) * ?PAGE_LENGTH, ?PAGE_LENGTH)
+		try   lists:sublist(Data, Start_idx, ?PAGE_LENGTH)
 		catch error:function_clause -> [] 
 		end,
 	Dest ! {Tag, Page_content}.
@@ -77,7 +78,7 @@ send_data(Dest, Tag, Data, Page) ->
 % Add new data to old data.
 %
 % Performance note:
-%	Erlang copies the left element of ++ not the right one
+%	Erlang copies the left element of ++, not the right one
 %	so the new data should be the left element. This has the
 %	added benefit that new data is found at the start of the data list.
 update_data(Old, New) -> [New] ++ Old.
@@ -109,4 +110,67 @@ view_loop(Data) ->
 				New_Data = update_data(Data, Content),
 				view_loop(New_Data)
 		end
+	end.
+
+% --------- %
+% Test Code %
+% --------- %
+
+-include_lib("eunit/include/eunit.hrl").
+
+viewEmpty_test() ->
+	V = start(),
+
+	read(V, self(), someTag, 0),
+	receive
+		Data0 -> ?assertMatch({someTag, []}, Data0)
+	end,
+
+	read(V, self(), someTag, 1),
+	receive
+		Data1 -> ?assertMatch({someTag, []}, Data1)
+	end.
+
+viewOrder_test() ->
+	V = start(),
+
+	lists:foreach(
+		fun(El) -> update(V, El) end,
+		lists:seq(1, 10)),
+
+	% Wait since read requests have priority
+	timer:sleep(500),
+	read(V, self(), someTag, 0),
+
+	receive
+		Data -> ?assertMatch({someTag, [10,9,8,7,6,5,4,3,2,1]}, Data)
+	end.
+
+viewPages_test() ->
+	V = start(),
+	L = lists:seq(1, 100),
+	R = lists:reverse(L),
+
+	lists:foreach(fun(El) -> update(V, El) end, L),
+
+	timer:sleep(500),
+
+	read(V, self(), all, 0),
+	receive
+		DataAll -> ?assertMatch({all, R}, DataAll)
+	end,
+
+	read(V, self(), empty, 20),
+	receive
+		DataEmpty -> ?assertMatch({empty, []}, DataEmpty)
+	end,
+
+	read(V, self(), first, 1),
+	receive
+		Data1 -> ?assertMatch({first, [100, 99, 98, 97, 96, 95, 94, 93, 92, 91]}, Data1)
+	end,
+
+	read(V, self(), fourth, 4),
+	receive
+		Data4 -> ?assertMatch({fourth, [70, 69, 68, 67, 66, 65, 64, 63, 62, 61]}, Data4)
 	end.
