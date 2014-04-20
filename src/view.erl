@@ -121,14 +121,14 @@ view_loop(Manager, Data) ->
 viewEmpty_test() ->
 	V = start(manager),
 
-	read(V, self(), someTag, 0),
+	read(V, self(), page0, 0),
 	receive
-		Data0 -> ?assertMatch({someTag, []}, Data0)
+		{page0, Data0} -> ?assertMatch([], Data0)
 	end,
 
-	read(V, self(), someTag, 1),
+	read(V, self(), tag1, 1),
 	receive
-		Data1 -> ?assertMatch({someTag, []}, Data1)
+		{tag1, Data1} -> ?assertMatch([], Data1)
 	end.
 
 viewOrder_test() ->
@@ -140,10 +140,20 @@ viewOrder_test() ->
 
 	% Wait since read requests have priority
 	timer:sleep(500),
-	read(V, self(), someTag, 0),
+	read(V, self(), tag, 0),
 
 	receive
-		Data -> ?assertMatch({someTag, [10,9,8,7,6,5,4,3,2,1]}, Data)
+		{tag, Data} -> ?assertMatch([10,9,8,7,6,5,4,3,2,1], Data)
+	end.
+
+viewPriority_test() ->
+	V = start(manager),
+
+	update(V, data),
+	read(V, self(), tag, 0),
+
+	receive
+		{tag, Lst} -> ?assertMatch([], Lst)
 	end.
 
 viewPages_test() ->
@@ -157,20 +167,20 @@ viewPages_test() ->
 
 	read(V, self(), all, 0),
 	receive
-		DataAll -> ?assertMatch({all, R}, DataAll)
+		{all, DataAll} -> ?assertMatch(R, DataAll)
 	end,
 
 	read(V, self(), empty, 20),
 	receive
-		DataEmpty -> ?assertMatch({empty, []}, DataEmpty)
+		{empty, DataEmpty} -> ?assertMatch([], DataEmpty)
 	end,
 
 	read(V, self(), first, 1),
 	receive
-		Data1 -> ?assertMatch({first, [100, 99, 98, 97, 96, 95, 94, 93, 92, 91]}, Data1)
+		{first, Data1} -> ?assertMatch([100, 99, 98, 97, 96, 95, 94, 93, 92, 91], Data1)
 	end,
 
 	read(V, self(), fourth, 4),
 	receive
-		Data4 -> ?assertMatch({fourth, [70, 69, 68, 67, 66, 65, 64, 63, 62, 61]}, Data4)
+		{fourth, Data4} -> ?assertMatch([70, 69, 68, 67, 66, 65, 64, 63, 62, 61], Data4)
 	end.
