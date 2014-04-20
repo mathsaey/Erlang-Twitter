@@ -16,7 +16,7 @@
 % The view does not care about the exact semantics of these elements.
 
 -module(view).
--export([start/0]).
+-export([start/1]).
 -export([read/4, update/2]).
 
 % The amount of elements on a
@@ -44,7 +44,7 @@ read(ViewPid, DestPid, Tag, Page) -> ViewPid ! {read, DestPid, Tag, Page}, ok.
 % ViewPid
 %		The view to update.
 % Content
-%		A list of data to add to the view.
+%		Data to add to the view.
 %
 update(ViewPid, Content) -> ViewPid ! {update, Content}, ok.
 
@@ -88,27 +88,27 @@ update_data(Old, New) -> [New] ++ Old.
 % ---------------- %
 
 % Start a view with no known data.
-start() -> start([]).
+start(Manager) -> start(Manager, []).
 
 % Start a view with some data.
-start(Data) -> spawn(fun() -> view_loop(Data) end).
+start(Manager, Data) -> spawn(fun() -> view_loop(Manager, Data) end).
 
 % View actor loop.
 % Read messages get priority
 % over updates.
-view_loop(Data) ->
+view_loop(Manager, Data) ->
 	receive
 		{read, Dest, Tag, Page} -> 
 			send_data(Dest, Tag, Data, Page), 
-			view_loop(Data)
+			view_loop(Manager, Data)
 	after 0 -> 
 		receive
 			{read, Dest, Tag, Page} -> 
 				send_data(Dest, Tag, Data, Page), 
-				view_loop(Data);
+				view_loop(Manager, Data);
 			{update, Content} -> 
 				New_Data = update_data(Data, Content),
-				view_loop(New_Data)
+				view_loop(Manager, New_Data)
 		end
 	end.
 
@@ -119,7 +119,7 @@ view_loop(Data) ->
 -include_lib("eunit/include/eunit.hrl").
 
 viewEmpty_test() ->
-	V = start(),
+	V = start(manager),
 
 	read(V, self(), someTag, 0),
 	receive
@@ -132,7 +132,7 @@ viewEmpty_test() ->
 	end.
 
 viewOrder_test() ->
-	V = start(),
+	V = start(manager),
 
 	lists:foreach(
 		fun(El) -> update(V, El) end,
@@ -147,7 +147,7 @@ viewOrder_test() ->
 	end.
 
 viewPages_test() ->
-	V = start(),
+	V = start(manager),
 	L = lists:seq(1, 100),
 	R = lists:reverse(L),
 
