@@ -8,14 +8,12 @@
 % instead, other processes do this, after which they push
 % the data to the view.
 
-% When a view receives too many requests, it dynamically creates
-% new copies of itself.
+% Read requests get priority over update requests,
+% this implies that views under heavy load will return
+% older data.
 
 % The data that a view contains is simply a list of elements.
 % The view does not care about the exact semantics of these elements.
-
-% TODO: Make read use pages for shorter replies (perhaps use a seperat process for this).
-% TODO: Add dynamic scaling.
 
 -module(view).
 -export([start/0]).
@@ -23,7 +21,7 @@
 
 % The amount of elements on a
 % single page.
--define(PAGE_LENGTH, 3).
+-define(PAGE_LENGTH, 10).
 
 % -------- %
 % Requests %
@@ -68,9 +66,10 @@ update(ViewPid, Content) -> ViewPid ! {update, Content}, ok.
 %	An empty list is returned if the page does not exist.
 %
 send_data(Dest, Tag, Data, 0) -> Dest ! {Tag, Data};
+send_data(Dest, Tag, Data, 1) -> Dest ! {Tag, lists:sublist(Data, ?PAGE_LENGTH)};
 send_data(Dest, Tag, Data, Page) -> 
 	Page_content = 
-		try   lists:sublist(Data, Page * ?PAGE_LENGTH, ?PAGE_LENGTH)
+		try   lists:sublist(Data, (Page - 1) * ?PAGE_LENGTH, ?PAGE_LENGTH)
 		catch error:function_clause -> [] 
 		end,
 	Dest ! {Tag, Page_content}.
@@ -83,10 +82,6 @@ send_data(Dest, Tag, Data, Page) ->
 %	added benefit that new data is found at the start of the data list.
 update_data(Old, New) -> [New] ++ Old.
 
-% --------------- %
-% Dynamic Scaling %
-% --------------- %
-
 % ---------------- %
 % Request Handling %
 % ---------------- %
@@ -98,12 +93,20 @@ start() -> start([]).
 start(Data) -> spawn(fun() -> view_loop(Data) end).
 
 % View actor loop.
+% Read messages get priority
+% over updates.
 view_loop(Data) ->
 	receive
 		{read, Dest, Tag, Page} -> 
 			send_data(Dest, Tag, Data, Page), 
-			view_loop(Data);
-		{update, Content} -> 
-			New_Data = update_data(Data, Content),
-			view_loop(New_Data)
+			view_loop(Data)
+	after 0 -> 
+		receive
+			{read, Dest, Tag, Page} -> 
+				send_data(Dest, Tag, Data, Page), 
+				view_loop(Data);
+			{update, Content} -> 
+				New_Data = update_data(Data, Content),
+				view_loop(New_Data)
+		end
 	end.
