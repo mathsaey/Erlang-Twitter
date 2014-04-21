@@ -3,184 +3,113 @@
 % Multicore Programming
 
 % This module implements a "view".
-% A View is a process that guarantees fast reads.
-% To do so, it does not take care of updating itself, 
-% instead, other processes do this, after which they push
-% the data to the view.
-
-% Read requests get priority over update requests,
-% this implies that views under heavy load will return
-% older data.
-
-% The data that a view contains is simply a list of elements.
-% The view does not care about the exact semantics of these elements.
+% A View is a process that contains a collection of data.
+% The view can simply read or modify this data.
 
 -module(view).
--export([start/1]).
--export([read/4, update/2]).
+-export([start/4, read/2, write/2]).
 
-% The amount of elements on a
-% single page.
--define(PAGE_LENGTH, 10).
+% --------- %
+% Interface %
+% --------- %
 
-% -------- %
-% Requests %
-% -------- %
+% Start a view with no known data.
+%
+% Manager
+%		The manager handles the dispatching
+%		of requests to the view, it should be
+%		notified if the view is unavailable.
+% ReadFunc
+%		The function that will read the data of this view.
+%		It should be able to receive 2 parameters.
+%		The first of these 2 parameters is the Data that 
+%		the view currently contains.
+%		The second is a tuple of arguments that were passed
+%		along with the read request.
+% WriteFunc
+%		The function that will update the data of this view.
+%		It takes the same arguments as the ReadFunc, but it should
+%		also return the new data of the view.
+% Data
+%		The data that this view starts with.
+%
+start(Manager, ReadFunc, WriteFunc, Data) -> 
+	spawn(fun() -> view_loop(Manager, ReadFunc, WriteFunc, Data) end).
 
 % Send a read request to a view.
 %
 % ViewPid
-%	The view to send the request to.
-% DestPid
-%	The Pid of the process waiting for a reply.
-% Tag
-%	A tag (an atom) that will be added to the reply.
-%	sent to DestPid
+%		The view to send the request to.
+% Args
+%		The arguments to add to the read request.
 %
-read(ViewPid, DestPid, Tag, Page) -> ViewPid ! {read, DestPid, Tag, Page}, ok.
+read(ViewPid, Args) -> ViewPid ! {read, Args}, ok.
 
 % Update the contents of a view.
 %
 % ViewPid
 %		The view to update.
-% Content
-%		Data to add to the view.
+% Args
+%		The arguments to add to the
+%		write request.
 %
-update(ViewPid, Content) -> ViewPid ! {update, Content}, ok.
-
-% --------------------- %
-% Convenience Functions %
-% --------------------- %
-
-% Send data to a destination.
-%
-% Dest
-%	The destination to send the data to.
-% Tag
-%	The tag to add to the message send.
-% Data
-%	The complete dataset
-% Page 
-%	The page to fetch.
-%	Fetches __all__ the data if the page is 0.
-%	An empty list is returned if the page does not exist.
-%
-send_data(Dest, Tag, Data, 0) -> Dest ! {Tag, Data};
-send_data(Dest, Tag, Data, 1) -> Dest ! {Tag, lists:sublist(Data, ?PAGE_LENGTH)};
-send_data(Dest, Tag, Data, Page) -> 
-	Start_idx = ((Page - 1) * ?PAGE_LENGTH) + 1,
-	Page_content = 
-		try   lists:sublist(Data, Start_idx, ?PAGE_LENGTH)
-		catch error:function_clause -> [] 
-		end,
-	Dest ! {Tag, Page_content}.
-
-% Add new data to old data.
-%
-% Performance note:
-%	Erlang copies the left element of ++, not the right one
-%	so the new data should be the left element. This has the
-%	added benefit that new data is found at the start of the data list.
-update_data(Old, New) -> [New] ++ Old.
+write(ViewPid, Args) -> ViewPid ! {write, Args}, ok.
 
 % ---------------- %
 % Request Handling %
 % ---------------- %
 
-% Start a view with no known data.
-start(Manager) -> start(Manager, []).
-
-% Start a view with some data.
-start(Manager, Data) -> spawn(fun() -> view_loop(Manager, Data) end).
-
-% View actor loop.
-% Read messages get priority
-% over updates.
-view_loop(Manager, Data) ->
+view_loop(Manager, ReadFunc, WriteFunc, Data) ->
 	receive
-		{read, Dest, Tag, Page} -> 
-			send_data(Dest, Tag, Data, Page), 
-			view_loop(Manager, Data)
+		{read, Args} -> 
+			ReadFunc(Data, Args), 
+			view_loop(Manager, ReadFunc, WriteFunc, Data)
 	after 0 -> 
 		receive
-			{read, Dest, Tag, Page} -> 
-				send_data(Dest, Tag, Data, Page), 
-				view_loop(Manager, Data);
-			{update, Content} -> 
-				New_Data = update_data(Data, Content),
-				view_loop(Manager, New_Data)
+			{read, Args} -> 
+				ReadFunc(Data, Args), 
+				view_loop(Manager, ReadFunc, WriteFunc, Data);
+			{write, Args} -> 
+				New_Data = WriteFunc(Data, Args),
+				view_loop(Manager, ReadFunc, WriteFunc, New_Data)
 		end
 	end.
 
-% --------- %
-% Test Code %
-% --------- %
+% ----- %
+% Tests %
+% ----- %
 
 -include_lib("eunit/include/eunit.hrl").
 
+startTestView() -> start(
+	manager, 
+	fun(Data, Dst) -> Dst ! Data, ok end,
+	fun(Data, New) -> [New] ++ Data end,
+	[]
+	).
+
 viewEmpty_test() ->
-	V = start(manager),
-
-	read(V, self(), page0, 0),
-	receive
-		{page0, Data0} -> ?assertMatch([], Data0)
-	end,
-
-	read(V, self(), tag1, 1),
-	receive
-		{tag1, Data1} -> ?assertMatch([], Data1)
-	end.
+	V = startTestView(),
+	read(V, self()),
+	
+	receive Data0 -> ?assertMatch([], Data0) end.
 
 viewOrder_test() ->
-	V = start(manager),
+	V = startTestView(),
 
 	lists:foreach(
-		fun(El) -> update(V, El) end,
+		fun(El) -> write(V, El) end,
 		lists:seq(1, 10)),
 
 	% Wait since read requests have priority
 	timer:sleep(500),
-	read(V, self(), tag, 0),
+	read(V, self()),
 
-	receive
-		{tag, Data} -> ?assertMatch([10,9,8,7,6,5,4,3,2,1], Data)
-	end.
+	receive Data -> ?assertMatch([10,9,8,7,6,5,4,3,2,1], Data) end.
 
 viewPriority_test() ->
-	V = start(manager),
+	V = startTestView(),
+	write(V, data),
+	read(V, self()),
 
-	update(V, data),
-	read(V, self(), tag, 0),
-
-	receive
-		{tag, Lst} -> ?assertMatch([], Lst)
-	end.
-
-viewPages_test() ->
-	V = start(manager),
-	L = lists:seq(1, 100),
-	R = lists:reverse(L),
-
-	lists:foreach(fun(El) -> update(V, El) end, L),
-
-	timer:sleep(500),
-
-	read(V, self(), all, 0),
-	receive
-		{all, DataAll} -> ?assertMatch(R, DataAll)
-	end,
-
-	read(V, self(), empty, 20),
-	receive
-		{empty, DataEmpty} -> ?assertMatch([], DataEmpty)
-	end,
-
-	read(V, self(), first, 1),
-	receive
-		{first, Data1} -> ?assertMatch([100, 99, 98, 97, 96, 95, 94, 93, 92, 91], Data1)
-	end,
-
-	read(V, self(), fourth, 4),
-	receive
-		{fourth, Data4} -> ?assertMatch([70, 69, 68, 67, 66, 65, 64, 63, 62, 61], Data4)
-	end.
+	receive Lst -> ?assertMatch([], Lst) end.
