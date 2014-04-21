@@ -59,6 +59,6 @@ addSubcription(User, Sub) ->
 %	A user id.
 %
 addFollower(User, Follower) -> 
-	Subs = followers(User),
-	New  = [Follower] ++ Subs,
+	Followers = followers(User),
+	New  = [Follower] ++ Followers,
 	User#user{followers = New}.
