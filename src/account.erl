@@ -8,9 +8,11 @@
 % module name.
 
 -module(account).
--export([create/2, subs/1, name/1, id/1, add_sub/2]).
+-export([create/2]).
+-export([addSubcription/2, addFollower/2]).
+-export([name/1, id/1, subscriptions/1, followers/1]).
 
--record (user,  {id, name, subscriptions = []}).
+-record (user,  {id, name, subscriptions = [], followers = []}).
 
 % Create a user. 
 %
@@ -26,7 +28,10 @@ create(Id, Name) -> #user{id = Id, name = Name}.
 % -------
 
 % Get the subscriptions of a user.
-subs(User) -> User#user.subscriptions.
+subscriptions(User) -> User#user.subscriptions.
+
+% Get the followers of a user.
+followers(User) -> User#user.followers.
 
 % Get the name of a user.
 name(User) -> User#user.name.
@@ -41,7 +46,19 @@ id(User) -> User#user.id.
 %
 % Sub
 %	A user id.
-add_sub(User, Sub) ->
-	Subs = subs(User),
+%
+addSubcription(User, Sub) ->
+	Subs = subscriptions(User),
 	New  = [Sub] ++ Subs,
 	User#user{subscriptions = New}.
+
+
+% Add another follower to a user.
+%
+% Follower
+%	A user id.
+%
+addFollower(User, Follower) -> 
+	Subs = followers(User),
+	New  = [Follower] ++ Subs,
+	User#user{followers = New}.
