@@ -7,7 +7,7 @@
 % The view can simply read or modify this data.
 
 -module(view).
--export([start/4, read/2, write/2]).
+-export([start/3, read/2, write/2]).
 
 % --------- %
 % Interface %
@@ -15,10 +15,6 @@
 
 % Start a view with no known data.
 %
-% Manager
-%		The manager handles the dispatching
-%		of requests to the view, it should be
-%		notified if the view is unavailable.
 % ReadFunc
 %		The function that will read the data of this view.
 %		It should be able to receive 2 parameters.
@@ -33,8 +29,8 @@
 % Data
 %		The data that this view starts with.
 %
-start(Manager, ReadFunc, WriteFunc, Data) -> 
-	spawn(fun() -> view_loop(Manager, ReadFunc, WriteFunc, Data) end).
+start(ReadFunc, WriteFunc, Data) -> 
+	spawn(fun() -> view_loop(ReadFunc, WriteFunc, Data) end).
 
 % Send a read request to a view.
 %
@@ -59,19 +55,19 @@ write(ViewPid, Args) -> ViewPid ! {write, Args}, ok.
 % Request Handling %
 % ---------------- %
 
-view_loop(Manager, ReadFunc, WriteFunc, Data) ->
+view_loop(ReadFunc, WriteFunc, Data) ->
 	receive
 		{read, Args} -> 
 			ReadFunc(Data, Args), 
-			view_loop(Manager, ReadFunc, WriteFunc, Data)
+			view_loop(ReadFunc, WriteFunc, Data)
 	after 0 -> 
 		receive
 			{read, Args} -> 
 				ReadFunc(Data, Args), 
-				view_loop(Manager, ReadFunc, WriteFunc, Data);
+				view_loop(ReadFunc, WriteFunc, Data);
 			{write, Args} -> 
 				New_Data = WriteFunc(Data, Args),
-				view_loop(Manager, ReadFunc, WriteFunc, New_Data)
+				view_loop(ReadFunc, WriteFunc, New_Data)
 		end
 	end.
 
@@ -82,7 +78,6 @@ view_loop(Manager, ReadFunc, WriteFunc, Data) ->
 -include_lib("eunit/include/eunit.hrl").
 
 startTestView() -> start(
-	manager, 
 	fun(Data, Dst) -> Dst ! Data, ok end,
 	fun(Data, New) -> [New] ++ Data end,
 	[]

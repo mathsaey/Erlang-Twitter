@@ -7,7 +7,7 @@
 % fetching user data
 
 -module(userView).
--export([start/2, addFollower/2, addSubcription/2]).
+-export([start/1, addFollower/2, addSubcription/2]).
 -export([getId/2, getName/2, getFollowers/2, getSubscriptions/2]).
 
 % --------- %
@@ -15,8 +15,7 @@
 % --------- %
 
 % Start a new userview
-start(Manager, User) -> view:start(
-	Manager,
+start(User) -> view:start(
 	fun(Data, {Destination, Tag}) -> readData(Data, Destination, Tag) end,
 	fun(Data, {Tag, New}) -> updateData(Data, New, Tag) end,
 	User
@@ -53,7 +52,7 @@ readData(Data, Dest, subcriptions) -> Dest ! {subcriptions, account:subscription
 -include_lib("eunit/include/eunit.hrl").
 
 basic_test() ->
-	V = start(manager, account:create(0, "Mathijs")),
+	V = start(account:create(0, "Mathijs")),
 
 	getId(V, self()),
 	receive {id, Id} -> ?assertMatch(0, Id) end,

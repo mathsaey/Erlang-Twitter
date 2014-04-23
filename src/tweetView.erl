@@ -7,7 +7,7 @@
 % fetching lists of tweets.
 
 -module(tweetView).
--export([start/1, read/4, write/2]).
+-export([start/0, read/4, write/2]).
 
 % The amount of elements on a
 % single page.
@@ -20,8 +20,7 @@
 % Start the tweet view.
 % Simply starts a view with the correct 
 % read and write functions.
-start(Manager) -> view:start(
-	Manager,
+start() -> view:start(
 	fun(Data, {Dest, Tag, Page}) -> send_data(Dest, Tag, Data, Page) end,
 	fun(Data, {Tweet}) -> tweet:insert(Tweet, Data) end,
 	[]
@@ -89,7 +88,7 @@ send_data(Dest, Tag, Data, Page) ->
 -include_lib("eunit/include/eunit.hrl").
 
 order_test() ->
-	V = start(manager),
+	V = start(),
 	T1 = tweet:create(0, "First!"),
 	T2 = tweet:create(0, "Second"),
 	T3 = tweet:create(0, "Last:("),
@@ -107,7 +106,6 @@ order_test() ->
 
 pages_test() ->
 	V = view:start(
-		manager,
 		fun(Data, {Dest, Tag, Page}) -> send_data(Dest, Tag, Data, Page) end,
 		fun(Data, New) -> [New] ++ Data end,
 		[]),
