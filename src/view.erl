@@ -7,7 +7,7 @@
 % The view can simply read or modify this data.
 
 -module(view).
--export([start/4, read/2, write/2, update/1]).
+-export([start/4, stop/1, read/2, write/2, update/1, duplicate/1]).
 
 % --------- %
 % Interface %
@@ -34,6 +34,14 @@
 start(Manager, ReadFunc, WriteFunc, Data) -> 
 	readLoop(Manager, ReadFunc, WriteFunc, Data).
 
+% Tell a view to stop activity after
+% handling it's remaining requests.
+%
+% ViewPid
+%		The view to send the request to.
+% 
+stop(ViewPid) -> ViewPid ! stop, ok.
+
 % Send a read request to a view.
 %
 % ViewPid
@@ -57,10 +65,41 @@ write(ViewPid, Args) -> ViewPid ! {write, Args}, ok.
 %
 % ViewPid
 %		The view that should start updating.
-% Manager
-%		The manager that requests the update phase to start.
 %
 update(ViewPid) -> ViewPid ! start_update, ok.
+
+% ----------- %
+% Duplication %
+% ----------- %
+
+% Request the full state of a view.
+% This includes the manager, read and write functions,
+% the data that the view contains as well as the current message queue.
+%
+getState(ViewPid, Destination) -> ViewPid ! {state, Destination}, ok.
+
+% Add all the updates of a source view's
+% message queue to a view.
+% 
+addUpdates(Data, _, []) -> 
+	Data;
+
+addUpdates(Data, WriteFunc, [{write, Args}|Tail]) -> 
+	New_Data = WriteFunc(Data, Args), 
+	addUpdates(New_Data, WriteFunc, Tail);
+
+addUpdates(Data, WriteFunc, [_Head|Tail]) -> 
+	addUpdates(Data, WriteFunc, Tail).
+
+% Duplicate the source view.
+duplicate(Source) -> 
+	getState(Source, self()),
+	receive
+		{state, {Manager, ReadFunc, WriteFunc, Data}, Lst} -> 
+			New_Data = addUpdates(Data, WriteFunc, Lst),
+			viewGroup:startFinished(Manager, self()),
+			readLoop(Manager, ReadFunc, WriteFunc, New_Data)
+	end.
 
 % ---------------- %
 % Request Handling %
@@ -70,15 +109,25 @@ readLoop(Manager, ReadFunc, WriteFunc, Data) ->
 	receive
 		{read, Args} -> 
 			ReadFunc(Data, Args), 
+			readLoop(Manager, ReadFunc, WriteFunc, Data);
+		{state, Dest} ->
+			{messages, Lst} = erlang:process_info(self(), messages),
+			Dest ! {state, {Manager, ReadFunc, WriteFunc, Data}, Lst},
 			readLoop(Manager, ReadFunc, WriteFunc, Data)
+
 	after 0 -> 
 		receive
 			{read, Args} -> 
 				ReadFunc(Data, Args),
-				%viewGroup:readFinished(Manager),
+				viewGroup:readFinished(Manager),
+				readLoop(Manager, ReadFunc, WriteFunc, Data);
+			{state, Dest} ->
+				{messages, Lst} = erlang:process_info(self(), messages),
+				Dest ! {state, {Manager, ReadFunc, WriteFunc, Data}, Lst},
 				readLoop(Manager, ReadFunc, WriteFunc, Data);
 			start_update -> 
-				updateLoop(Manager, ReadFunc, WriteFunc, Data)
+				updateLoop(Manager, ReadFunc, WriteFunc, Data);
+			stop -> finished
 		end
 	end.
 
@@ -88,7 +137,7 @@ updateLoop(Manager, ReadFunc, WriteFunc, Data) ->
 			New_Data = WriteFunc(Data, Args),
 			updateLoop(Manager, ReadFunc, WriteFunc, New_Data)
 	after 0 ->
-		%viewGroup:updateFinished(Manager),
+		viewGroup:updateFinished(Manager),
 		readLoop(Manager, ReadFunc, WriteFunc, Data)
 	end.
 
@@ -133,3 +182,17 @@ viewPriority_test() ->
 	read(V, self()),
 
 	receive Lst -> ?assertMatch([], Lst) end.
+
+viewDuplicate_test() ->
+	V = startTestView(),
+
+	write(V, 1),
+	write(V, 2),
+
+	timer:sleep(500),
+	write(V, 3),
+
+	D = spawn(fun() -> duplicate(V) end),
+
+	read(D, self()),
+	receive Data -> ?assertMatch([3,2,1], Data) end.
