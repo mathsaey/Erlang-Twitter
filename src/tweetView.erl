@@ -21,7 +21,7 @@
 % Simply starts a view with the correct 
 % read and write functions.
 start() -> view:start(
-	fun(Data, {Dest, Tag, Page}) -> send_data(Dest, Tag, Data, Page) end,
+	fun(Data, {Dest, Tag, Page}) -> sendData(Dest, Tag, Data, Page) end,
 	fun(Data, {Tweet}) -> tweet:insert(Tweet, Data) end,
 	[]
 	).
@@ -70,9 +70,9 @@ write(ViewPid, Tweet) -> view:write(ViewPid, {Tweet}).
 %	Fetches __all__ the data if the page is 0.
 %	An empty list is returned if the page does not exist.
 %
-send_data(Dest, Tag, Data, 0) -> Dest ! {Tag, Data};
-send_data(Dest, Tag, Data, 1) -> Dest ! {Tag, lists:sublist(Data, ?PAGE_LENGTH)};
-send_data(Dest, Tag, Data, Page) -> 
+sendData(Dest, Tag, Data, 0) -> Dest ! {Tag, Data};
+sendData(Dest, Tag, Data, 1) -> Dest ! {Tag, lists:sublist(Data, ?PAGE_LENGTH)};
+sendData(Dest, Tag, Data, Page) -> 
 	Start_idx = ((Page - 1) * ?PAGE_LENGTH) + 1,
 	Page_content = 
 		try   lists:sublist(Data, Start_idx, ?PAGE_LENGTH)
@@ -106,7 +106,7 @@ order_test() ->
 
 pages_test() ->
 	V = view:start(
-		fun(Data, {Dest, Tag, Page}) -> send_data(Dest, Tag, Data, Page) end,
+		fun(Data, {Dest, Tag, Page}) -> sendData(Dest, Tag, Data, Page) end,
 		fun(Data, New) -> [New] ++ Data end,
 		[]),
 

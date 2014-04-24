@@ -30,7 +30,7 @@
 %		The data that this view starts with.
 %
 start(ReadFunc, WriteFunc, Data) -> 
-	spawn(fun() -> view_loop(ReadFunc, WriteFunc, Data) end).
+	spawn(fun() -> viewLoop(ReadFunc, WriteFunc, Data) end).
 
 % Send a read request to a view.
 %
@@ -55,19 +55,19 @@ write(ViewPid, Args) -> ViewPid ! {write, Args}, ok.
 % Request Handling %
 % ---------------- %
 
-view_loop(ReadFunc, WriteFunc, Data) ->
+viewLoop(ReadFunc, WriteFunc, Data) ->
 	receive
 		{read, Args} -> 
 			ReadFunc(Data, Args), 
-			view_loop(ReadFunc, WriteFunc, Data)
+			viewLoop(ReadFunc, WriteFunc, Data)
 	after 0 -> 
 		receive
 			{read, Args} -> 
 				ReadFunc(Data, Args), 
-				view_loop(ReadFunc, WriteFunc, Data);
+				viewLoop(ReadFunc, WriteFunc, Data);
 			{write, Args} -> 
 				New_Data = WriteFunc(Data, Args),
-				view_loop(ReadFunc, WriteFunc, New_Data)
+				viewLoop(ReadFunc, WriteFunc, New_Data)
 		end
 	end.
 
