@@ -7,7 +7,7 @@
 % The view can simply read or modify this data.
 
 -module(view).
--export([start/3, read/2, write/2, update/2]).
+-export([start/4, read/2, write/2, update/1]).
 
 % --------- %
 % Interface %
@@ -28,9 +28,11 @@
 %		also return the new data of the view.
 % Data
 %		The data that this view starts with.
+% Manager
+%		The viewmanager managing this view.
 %
-start(ReadFunc, WriteFunc, Data) -> 
-	spawn(fun() -> readLoop(ReadFunc, WriteFunc, Data) end).
+start(ReadFunc, WriteFunc, Data, Manager) -> 
+	spawn(fun() -> readLoop(ReadFunc, WriteFunc, Data, Manager) end).
 
 % Send a read request to a view.
 %
@@ -58,23 +60,24 @@ write(ViewPid, Args) -> ViewPid ! {write, Args}, ok.
 % Manager
 %		The manager that requests the update phase to start.
 %
-update(ViewPid, Manager) -> ViewPid ! {start_update, Manager}, ok.
+update(ViewPid) -> ViewPid ! start_update, ok.
 
 % ---------------- %
 % Request Handling %
 % ---------------- %
 
-readLoop(ReadFunc, WriteFunc, Data) ->
+readLoop(ReadFunc, WriteFunc, Data, Manager) ->
 	receive
 		{read, Args} -> 
 			ReadFunc(Data, Args), 
-			readLoop(ReadFunc, WriteFunc, Data)
+			readLoop(ReadFunc, WriteFunc, Data, Manager)
 	after 0 -> 
 		receive
 			{read, Args} -> 
-				ReadFunc(Data, Args), 
-				readLoop(ReadFunc, WriteFunc, Data);
-			{start_update, Manager} -> 
+				ReadFunc(Data, Args),
+				viewGroup:readFinished(Manager),
+				readLoop(ReadFunc, WriteFunc, Data, Manager);
+			start_update -> 
 				updateLoop(ReadFunc, WriteFunc, Data, Manager)
 		end
 	end.
@@ -85,10 +88,9 @@ updateLoop(ReadFunc, WriteFunc, Data, Manager) ->
 			New_Data = WriteFunc(Data, Args),
 			updateLoop(ReadFunc, WriteFunc, New_Data, Manager)
 	after 0 ->
-		% Notify the manager
-		readLoop(ReadFunc, WriteFunc, Data)
+		viewGroup:updateFinished(Manager),
+		readLoop(ReadFunc, WriteFunc, Data, Manager)
 	end.
-
 
 % ----- %
 % Tests %
@@ -97,6 +99,7 @@ updateLoop(ReadFunc, WriteFunc, Data, Manager) ->
 -include_lib("eunit/include/eunit.hrl").
 
 startTestView() -> start(
+	manager,
 	fun(Data, Dst) -> Dst ! Data, ok end,
 	fun(Data, New) -> [New] ++ Data end,
 	[]
@@ -115,7 +118,7 @@ viewOrder_test() ->
 		fun(El) -> write(V, El) end,
 		lists:seq(1, 10)),
 
-	update(V, manager),
+	update(V),
 
 	% Wait since read requests have priority
 	timer:sleep(500),
