@@ -15,6 +15,8 @@
 
 % Start a view with no known data.
 %
+% Manager
+%		The viewmanager managing this view.
 % ReadFunc
 %		The function that will read the data of this view.
 %		It should be able to receive 2 parameters.
@@ -28,11 +30,9 @@
 %		also return the new data of the view.
 % Data
 %		The data that this view starts with.
-% Manager
-%		The viewmanager managing this view.
 %
-start(ReadFunc, WriteFunc, Data, Manager) -> 
-	spawn(fun() -> readLoop(ReadFunc, WriteFunc, Data, Manager) end).
+start(Manager, ReadFunc, WriteFunc, Data) -> 
+	readLoop(Manager, ReadFunc, WriteFunc, Data).
 
 % Send a read request to a view.
 %
@@ -66,30 +66,30 @@ update(ViewPid) -> ViewPid ! start_update, ok.
 % Request Handling %
 % ---------------- %
 
-readLoop(ReadFunc, WriteFunc, Data, Manager) ->
+readLoop(Manager, ReadFunc, WriteFunc, Data) ->
 	receive
 		{read, Args} -> 
 			ReadFunc(Data, Args), 
-			readLoop(ReadFunc, WriteFunc, Data, Manager)
+			readLoop(Manager, ReadFunc, WriteFunc, Data)
 	after 0 -> 
 		receive
 			{read, Args} -> 
 				ReadFunc(Data, Args),
-				viewGroup:readFinished(Manager),
-				readLoop(ReadFunc, WriteFunc, Data, Manager);
+				%viewGroup:readFinished(Manager),
+				readLoop(Manager, ReadFunc, WriteFunc, Data);
 			start_update -> 
-				updateLoop(ReadFunc, WriteFunc, Data, Manager)
+				updateLoop(Manager, ReadFunc, WriteFunc, Data)
 		end
 	end.
 
-updateLoop(ReadFunc, WriteFunc, Data, Manager) ->
+updateLoop(Manager, ReadFunc, WriteFunc, Data) ->
 	receive
 		{write, Args} ->
 			New_Data = WriteFunc(Data, Args),
-			updateLoop(ReadFunc, WriteFunc, New_Data, Manager)
+			updateLoop(Manager, ReadFunc, WriteFunc, New_Data)
 	after 0 ->
-		viewGroup:updateFinished(Manager),
-		readLoop(ReadFunc, WriteFunc, Data, Manager)
+		%viewGroup:updateFinished(Manager),
+		readLoop(Manager, ReadFunc, WriteFunc, Data)
 	end.
 
 % ----- %
@@ -98,12 +98,13 @@ updateLoop(ReadFunc, WriteFunc, Data, Manager) ->
 
 -include_lib("eunit/include/eunit.hrl").
 
-startTestView() -> start(
-	manager,
-	fun(Data, Dst) -> Dst ! Data, ok end,
-	fun(Data, New) -> [New] ++ Data end,
-	[]
-	).
+startTestView() -> spawn(fun() -> 
+	start(
+		manager,
+		fun(Data, Dst) -> Dst ! Data, ok end,
+		fun(Data, New) -> [New] ++ Data end,
+		[])
+	end).
 
 viewEmpty_test() ->
 	V = startTestView(),
