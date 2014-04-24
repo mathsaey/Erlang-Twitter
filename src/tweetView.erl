@@ -97,6 +97,7 @@ order_test() ->
 	write(V, T1),
 	write(V, T3),
 
+	view:update(V, manager),
 	timer:sleep(500),
 	read(V, self(), tweets, 0),
 
@@ -115,6 +116,7 @@ pages_test() ->
 
 	lists:foreach(fun(El) -> view:write(V, El) end, L),
 
+	view:update(V, manager),
 	timer:sleep(500),
 
 	read(V, self(), all, 0),

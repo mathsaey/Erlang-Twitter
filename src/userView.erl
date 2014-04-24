@@ -71,6 +71,7 @@ basic_test() ->
 	addSubcription(V, 3),
 	addSubcription(V, 4),
 
+	view:update(V, manager),
 	timer:sleep(500),
 
 	getFollowers(V, self()),

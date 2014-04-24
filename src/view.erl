@@ -7,7 +7,7 @@
 % The view can simply read or modify this data.
 
 -module(view).
--export([start/3, read/2, write/2]).
+-export([start/3, read/2, write/2, update/2]).
 
 % --------- %
 % Interface %
@@ -30,7 +30,7 @@
 %		The data that this view starts with.
 %
 start(ReadFunc, WriteFunc, Data) -> 
-	spawn(fun() -> viewLoop(ReadFunc, WriteFunc, Data) end).
+	spawn(fun() -> readLoop(ReadFunc, WriteFunc, Data) end).
 
 % Send a read request to a view.
 %
@@ -51,25 +51,44 @@ read(ViewPid, Args) -> ViewPid ! {read, Args}, ok.
 %
 write(ViewPid, Args) -> ViewPid ! {write, Args}, ok.
 
+% Tell a view to start updating.
+%
+% ViewPid
+%		The view that should start updating.
+% Manager
+%		The manager that requests the update phase to start.
+%
+update(ViewPid, Manager) -> ViewPid ! {start_update, Manager}, ok.
+
 % ---------------- %
 % Request Handling %
 % ---------------- %
 
-viewLoop(ReadFunc, WriteFunc, Data) ->
+readLoop(ReadFunc, WriteFunc, Data) ->
 	receive
 		{read, Args} -> 
 			ReadFunc(Data, Args), 
-			viewLoop(ReadFunc, WriteFunc, Data)
+			readLoop(ReadFunc, WriteFunc, Data)
 	after 0 -> 
 		receive
 			{read, Args} -> 
 				ReadFunc(Data, Args), 
-				viewLoop(ReadFunc, WriteFunc, Data);
-			{write, Args} -> 
-				New_Data = WriteFunc(Data, Args),
-				viewLoop(ReadFunc, WriteFunc, New_Data)
+				readLoop(ReadFunc, WriteFunc, Data);
+			{start_update, Manager} -> 
+				updateLoop(ReadFunc, WriteFunc, Data, Manager)
 		end
 	end.
+
+updateLoop(ReadFunc, WriteFunc, Data, Manager) ->
+	receive
+		{write, Args} ->
+			New_Data = WriteFunc(Data, Args),
+			updateLoop(ReadFunc, WriteFunc, New_Data, Manager)
+	after 0 ->
+		% Notify the manager
+		readLoop(ReadFunc, WriteFunc, Data)
+	end.
+
 
 % ----- %
 % Tests %
@@ -95,6 +114,8 @@ viewOrder_test() ->
 	lists:foreach(
 		fun(El) -> write(V, El) end,
 		lists:seq(1, 10)),
+
+	update(V, manager),
 
 	% Wait since read requests have priority
 	timer:sleep(500),
