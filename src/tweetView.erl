@@ -89,7 +89,7 @@ sendData(Dest, Tag, Data, Page) ->
 -include_lib("eunit/include/eunit.hrl").
 
 order_test() ->
-	V = spawn(tweetView, start, [manager]),
+	V = spawn(tweetView, start, [spawn(fun() -> ok end)]),
 	T1 = tweet:create(0, "First!"),
 	T2 = tweet:create(0, "Second"),
 	T3 = tweet:create(0, "Last:("),
@@ -108,7 +108,7 @@ order_test() ->
 
 pages_test() ->
 	V = spawn(fun() -> view:start(
-		manager,
+		spawn(fun() -> ok end),
 		fun(Data, {Dest, Tag, Page}) -> sendData(Dest, Tag, Data, Page) end,
 		fun(Data, New) -> [New] ++ Data end,
 		[])

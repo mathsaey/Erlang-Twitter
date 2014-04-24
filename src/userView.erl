@@ -54,7 +54,7 @@ readData(Data, Dest, subcriptions) -> Dest ! {subcriptions, account:subscription
 
 basic_test() ->
 	A = account:create(0, "Mathijs"),
-	V = spawn(fun() -> start(A, manager) end),
+	V = spawn(fun() -> start(A, spawn(fun() -> ok end)) end),
 
 	getId(V, self()),
 	receive {id, Id} -> ?assertMatch(0, Id) end,

@@ -15,7 +15,7 @@
 
 % Start a view with no known data.
 %
-% Manager
+% Monitor
 %		The viewmanager managing this view.
 % ReadFunc
 %		The function that will read the data of this view.
@@ -31,8 +31,9 @@
 % Data
 %		The data that this view starts with.
 %
-start(Manager, ReadFunc, WriteFunc, Data) -> 
-	readLoop(Manager, ReadFunc, WriteFunc, Data).
+start(Monitor, ReadFunc, WriteFunc, Data) -> 
+	viewGroup:startFinished(Monitor, self()),
+	readLoop(Monitor, ReadFunc, WriteFunc, Data).
 
 % Tell a view to stop activity after
 % handling it's remaining requests.
@@ -95,50 +96,49 @@ addUpdates(Data, WriteFunc, [_Head|Tail]) ->
 duplicate(Source) -> 
 	getState(Source, self()),
 	receive
-		{state, {Manager, ReadFunc, WriteFunc, Data}, Lst} -> 
+		{state, {Monitor, ReadFunc, WriteFunc, Data}, Lst} -> 
 			New_Data = addUpdates(Data, WriteFunc, Lst),
-			viewGroup:startFinished(Manager, self()),
-			readLoop(Manager, ReadFunc, WriteFunc, New_Data)
+			start(Monitor, ReadFunc, WriteFunc, New_Data)
 	end.
 
 % ---------------- %
 % Request Handling %
 % ---------------- %
 
-readLoop(Manager, ReadFunc, WriteFunc, Data) ->
+readLoop(Monitor, ReadFunc, WriteFunc, Data) ->
 	receive
 		{read, Args} -> 
 			ReadFunc(Data, Args), 
-			readLoop(Manager, ReadFunc, WriteFunc, Data);
+			readLoop(Monitor, ReadFunc, WriteFunc, Data);
 		{state, Dest} ->
 			{messages, Lst} = erlang:process_info(self(), messages),
-			Dest ! {state, {Manager, ReadFunc, WriteFunc, Data}, Lst},
-			readLoop(Manager, ReadFunc, WriteFunc, Data)
+			Dest ! {state, {Monitor, ReadFunc, WriteFunc, Data}, Lst},
+			readLoop(Monitor, ReadFunc, WriteFunc, Data)
 
 	after 0 -> 
 		receive
 			{read, Args} -> 
 				ReadFunc(Data, Args),
-				viewGroup:readFinished(Manager),
-				readLoop(Manager, ReadFunc, WriteFunc, Data);
+				viewGroup:readFinished(Monitor),
+				readLoop(Monitor, ReadFunc, WriteFunc, Data);
 			{state, Dest} ->
 				{messages, Lst} = erlang:process_info(self(), messages),
-				Dest ! {state, {Manager, ReadFunc, WriteFunc, Data}, Lst},
-				readLoop(Manager, ReadFunc, WriteFunc, Data);
+				Dest ! {state, {Monitor, ReadFunc, WriteFunc, Data}, Lst},
+				readLoop(Monitor, ReadFunc, WriteFunc, Data);
 			start_update -> 
-				updateLoop(Manager, ReadFunc, WriteFunc, Data);
+				updateLoop(Monitor, ReadFunc, WriteFunc, Data, 0);
 			stop -> finished
 		end
 	end.
 
-updateLoop(Manager, ReadFunc, WriteFunc, Data) ->
+updateLoop(Monitor, ReadFunc, WriteFunc, Data, Writes) ->
 	receive
 		{write, Args} ->
 			New_Data = WriteFunc(Data, Args),
-			updateLoop(Manager, ReadFunc, WriteFunc, New_Data)
+			updateLoop(Monitor, ReadFunc, WriteFunc, New_Data, Writes + 1)
 	after 0 ->
-		viewGroup:updateFinished(Manager),
-		readLoop(Manager, ReadFunc, WriteFunc, Data)
+		viewGroup:updateFinished(Monitor, Writes),
+		readLoop(Monitor, ReadFunc, WriteFunc, Data)
 	end.
 
 % ----- %
@@ -149,7 +149,7 @@ updateLoop(Manager, ReadFunc, WriteFunc, Data) ->
 
 startTestView() -> spawn(fun() -> 
 	start(
-		manager,
+		spawn(fun() -> ok end),
 		fun(Data, Dst) -> Dst ! Data, ok end,
 		fun(Data, New) -> [New] ++ Data end,
 		[])
