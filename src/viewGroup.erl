@@ -10,11 +10,11 @@
 
 % The amount of requests/view before
 % views will be deleted.
--define(REQUEST_LOWER_LIMIT, 1).
+-define(REQUEST_LOWER_LIMIT, 0.5).
 
 % The amount of requests/view before
 % new views will be created.
--define(REQUEST_UPPER_LIMIT, 5).
+-define(REQUEST_UPPER_LIMIT, 10).
 
 % ----------------- %
 % External Requests %
@@ -85,22 +85,51 @@ waitForGroup(Name) ->
 % They simply contain the available view and a flag
 % that tells us if they should be updated or not.
 
-insertView(View, Ring) -> ring:insert({View, false}, Ring).
+insertView(View, Ring) -> ring:insert({View, clean}, Ring).
 deleteView(View, Ring) -> ring:filter(fun({P, _}) -> P /= View end, Ring).
 
 % Send a write request to all the views, and mark
 % them as changed.
-setFlags(Ring, Args) -> 
-	ring:map(fun({P, _}) -> view:write(P, Args), {P, true} end, Ring).
+setFlags(Ring, Args) -> ring:map(
+	fun
+		({P, updating}) -> view:write(P, Args);
+		({P, _}) -> view:write(P, Args), {P, dirty} 
+	end, 
+	Ring).
 
-% Rotate the ring until we find a "true" flag.
-getNext(Ring) -> getNext(Ring, ring:previous(Ring)).
-getNext(Ring, Start) -> 
-	case ring:current(Ring) of
-		{_, true} -> {true, Ring};
-		Start -> {false, Ring};
-		_Else -> getNext(ring:turn(Ring), Start)
+% See if we encounter any elements in the ring
+% that need updating. If this is the case, update them.
+updateRing(Ring, Group) -> 
+	case ring:singleEl(Ring) of 
+		true  -> updateSingle(Ring);
+		false -> updateNext(Ring, Group, ring:previous(Ring))
 	end.
+
+% Find the next element in the ring that needs updating
+% If we find it, update it.
+% Returns a new ring.
+updateNext(Ring, Group, End) ->
+	case ring:current(Ring) of
+		End -> Ring;
+		{_, updating} -> Ring;
+		{_, clean} -> 
+			updateNext(ring:turn(Ring), Group, End);
+		{V, dirty} -> 
+			pg2:leave(Group, V),
+			view:update(V, add), 
+			ring:setCurrent({V, updating}, Ring)
+	end.
+
+% See if the only element in the ring needs udpating.
+updateSingle(Ring) ->
+	case ring:current(Ring) of
+		{_, updating} -> Ring;
+		{_, clean} -> Ring;
+		{V, dirty} -> 
+			view:update(V, no_add), 
+			ring:setCurrent({V, updating}, Ring)
+	end.
+
 
 % ------------- %
 % Group Monitor %
@@ -122,7 +151,6 @@ getNext(Ring, Start) ->
 %		This includes the view being updated
 %		and views currently being created.
 %
-
 % Create extra processes if needed.
 monitorLoop(Group, Ring, Reads, Views, Active) 
 	when (Reads / Views) > ?REQUEST_UPPER_LIMIT ->
@@ -154,44 +182,32 @@ monitorLoop(Group, Ring, Reads, Views, Active) ->
 				N_Ring = insertView(View, Ring),
 				monitorLoop(Group, N_Ring, Reads, Views, Active + 1);
 
+			% Start updating the views
+			{write, Args} ->
+				Tmp_Ring = setFlags(Ring, Args),
+				New_Ring = updateRing(Tmp_Ring, Group),
+				monitorLoop(Group, New_Ring, Reads, Views, Active);
+
+			% Update the next view view
+			{update_finished, no_add} ->
+				{View,_} = ring:current(Ring),
+				Tmp_Ring = ring:setCurrent({View, clean}, Ring),
+				New_Ring = updateRing(Tmp_Ring, Group),
+				monitorLoop(Group, New_Ring, Reads, Views, Active);
+
+			{update_finished, add} ->
+				{View,_} = ring:current(Ring), 
+				pg2:join(Group, View),
+
+				Tmp_Ring = ring:setCurrent({View, clean}, Ring),
+				New_Ring = updateRing(Tmp_Ring, Group),
+				monitorLoop(Group, New_Ring, Reads, Views, Active);
+
 			% Update amount of reads
 			read_start -> 
 				monitorLoop(Group, Ring, Reads + 1, Views, Active);
 			read_finished ->
-				monitorLoop(Group, Ring, Reads - 1, Views, Active);
-
-			% Start updating the views
-			{write, Args} ->
-				N_Ring = setFlags(Ring, Args),
-				{View, _} = ring:current(N_Ring),
-
-				Tag = case ring:singleEl(Ring) of
-					false -> normal, pg2:leave(Group, View);
-					true -> single
-				end,
-
-				view:update(View, Tag),
-				monitorLoop(Group, N_Ring, Reads, Views, Active);
-
-			% Update another view
-			{update_finished, Tag} ->
-				{View,_} = ring:current(Ring),
-				Tmp_Ring = ring:setCurrent({View, false}, Ring),
-				{Bool, N_Ring} = getNext(Tmp_Ring),
-
-				case Tag of
-					normal -> pg2:join(Group, View);
-					_  -> ok
-				end,
-
-				case Bool of
-					true -> 
-						Next = ring:current(N_Ring),
-						pg2:leave(Group, Next),
-						view:update(Next, normal);
-					_ -> ok
-				end,
-				monitorLoop(Group, N_Ring, Reads, Views, Active)
+				monitorLoop(Group, Ring, Reads - 1, Views, Active)
 		end
 	end.
 
