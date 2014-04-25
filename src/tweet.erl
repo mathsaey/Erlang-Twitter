@@ -9,7 +9,7 @@
 -export([create/2, user/1, content/1, timestamp/1, insert/2, getPage/2]).
 -record (tweet, {timestamp, user_id, content}).
 
-% The amount of elements on a
+% The amount of tweets on a
 % single page.
 -define(PAGE_LENGTH, 10).
 
@@ -36,7 +36,7 @@ content(Tweet) -> Tweet#tweet.content.
 % Get the timestamp of the tweet.
 timestamp(Tweet) -> Tweet#tweet.timestamp.
 
-% Convenience
+% Tweet Lists
 % -----------
 
 % Insert a tweet into a sorted list of tweets.

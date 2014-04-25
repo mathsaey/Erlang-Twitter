@@ -12,13 +12,13 @@
 -export([addSubscription/2, addFollower/2]).
 -export([id/1, subscriptions/1, followers/1]).
 
--record (user,  {id, subscriptions = [], followers = []}).
+-record (user, {id, subscriptions = [], followers = []}).
 
 % Create a user. 
 %
 % Id
 %	The unique identifier for the user.
-%	The module creating the user is reponsible
+%	The module creating the user is responsible
 %	for guaranteeing the uniqueness of the id.
 %
 create(Id) -> #user{id = Id}.

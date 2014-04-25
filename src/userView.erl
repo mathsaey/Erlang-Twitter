@@ -14,7 +14,7 @@
 % Interface %
 % --------- %
 
-% Start a new userview
+% Start a new group for this user
 start(User) -> viewGroup:create(
 	"usr" ++ integer_to_list(account:id(User)),
 	fun(Data, {Destination, Tag}) -> readData(Data, Destination, Tag) end,

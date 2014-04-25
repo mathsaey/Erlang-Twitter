@@ -25,7 +25,7 @@ TEST_INVOCATION = erl -noshell -s $(basename $@) test -s init stop
 
 compile: directory $(BEAM_FILES)
 
-test: compile view.test userView.test tweetView.test
+test: compile tweet.test view.test userView.test tweetView.test viewGroup.test
 
 directory:
 	@ mkdir -p $(OUTPUT_DIR)

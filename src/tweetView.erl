@@ -14,7 +14,7 @@
 % --------- %
 
 % Start the tweet view.
-% Simply starts a view with the correct 
+% Simply starts a viewGroup with the correct 
 % read and write functions.
 %
 % Type
@@ -36,11 +36,11 @@ start(Type, UserId) -> viewGroup:create(
 % UserId
 %		The id of the user that this view belongs to.
 % DestPid
-% 	The Pid of the process waiting for a reply.
+% 		The Pid of the process waiting for a reply.
 % Page
-% 	The page to fetch.
-% 	Fetches __all__ the data if the page is 0.
-% 	An empty list is returned if the page does not exist.
+% 		The page to fetch.
+% 		Fetches __all__ the data if the page is 0.
+% 		An empty list is returned if the page does not exist.
 %
 read(Type, Id, DestPid, Page) -> 
 	Name = atom_to_list(Type) ++ integer_to_list(Id),
@@ -53,7 +53,7 @@ read(Type, Id, DestPid, Page) ->
 % UserId
 %		The id of the user that this view belongs to.
 % Tweet
-% 	The tweet to add to the view.
+% 		The tweet to add to the view.
 %
 write(Type, Id, Tweet) -> 
 	Name = atom_to_list(Type) ++ integer_to_list(Id),
@@ -67,15 +67,15 @@ write(Type, Id, Tweet) ->
 % And send it to the process waiting for it.
 %
 % Dest
-%	The destination to send the data to.
+%		The destination to send the data to.
 % Tag
-%	The tag to add to the message send.
+%		The tag to add to the message send.
 % Data
-%	The complete dataset
+%		The complete dataset
 % Page 
-%	The page to fetch.
-%	Fetches __all__ the data if the page is 0.
-%	An empty list is returned if the page does not exist.
+%		The page to fetch.
+%		Fetches __all__ the data if the page is 0.
+%		An empty list is returned if the page does not exist.
 %
 sendData(Dest, Tag, Data, Page) ->
 	Dest ! {Tag, tweet:getPage(Data, Page)}.
