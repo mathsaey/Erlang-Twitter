@@ -7,7 +7,7 @@
 % fetching user data
 
 -module(userView).
--export([start/1, addFollower/2, addSubcription/2]).
+-export([start/1, addFollower/2, addSubscription/2]).
 -export([getFollowers/1, getSubscriptions/1]).
 
 % --------- %
@@ -26,7 +26,7 @@ start(User) -> viewGroup:create(
 addFollower(Id, Follower) -> write(Id, {follower, Follower}).
 
 % Add a subscription to a user view.
-addSubcription(Id, Subscription) -> write(Id, {subscription, Subscription}).
+addSubscription(Id, Subscription) -> write(Id, {subscription, Subscription}).
 
 % Get various user data from a view,
 % and wait for the reply.
@@ -36,8 +36,8 @@ getFollowers(Id) ->
 	receive {followers, Lst} -> Lst end.
 
 getSubscriptions(Id) ->
-	read(Id, {self(), subcriptions}),
-	receive {subcriptions, Lst} -> Lst end.
+	read(Id, {self(), subscriptions}),
+	receive {subscriptions, Lst} -> Lst end.
 
 % ----------- %
 % Convenience %
@@ -51,11 +51,11 @@ write(Id, Args) ->
 	viewGroup:write(Name, Args).
 
 updateData(Data, New, follower) -> account:addFollower(Data, New);
-updateData(Data, New, subscription) -> account:addSubcription(Data, New).
+updateData(Data, New, subscription) -> account:addSubscription(Data, New).
 
 readData(Data, Dest, id) -> Dest ! {id, account:id(Data)}, ok;
 readData(Data, Dest, followers) -> Dest ! {followers, account:followers(Data)}, ok;
-readData(Data, Dest, subcriptions) -> Dest ! {subcriptions, account:subscriptions(Data)}, ok.
+readData(Data, Dest, subscriptions) -> Dest ! {subscriptions, account:subscriptions(Data)}, ok.
 
 % ---- %
 % Test %
@@ -72,8 +72,8 @@ basic_test() ->
 
 	addFollower(0, 1),
 	addFollower(0, 2),
-	addSubcription(0, 3),
-	addSubcription(0, 4),
+	addSubscription(0, 3),
+	addSubscription(0, 4),
 
 	timer:sleep(500),
 

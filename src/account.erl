@@ -9,7 +9,7 @@
 
 -module(account).
 -export([create/1]).
--export([addSubcription/2, addFollower/2]).
+-export([addSubscription/2, addFollower/2]).
 -export([id/1, subscriptions/1, followers/1]).
 
 -record (user,  {id, subscriptions = [], followers = []}).
@@ -43,7 +43,7 @@ id(User) -> User#user.id.
 % Sub
 %	A user id.
 %
-addSubcription(User, Sub) ->
+addSubscription(User, Sub) ->
 	Subs = subscriptions(User),
 	New  = [Sub] ++ Subs,
 	User#user{subscriptions = New}.
