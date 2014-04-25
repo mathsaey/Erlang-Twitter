@@ -73,7 +73,7 @@ basic_test() ->
 	addSubcription(V, 3),
 	addSubcription(V, 4),
 
-	view:update(V),
+	view:update(V, tag),
 	timer:sleep(500),
 
 	getFollowers(V, self()),

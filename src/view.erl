@@ -7,7 +7,7 @@
 % The view can simply read or modify this data.
 
 -module(view).
--export([start/4, stop/1, read/2, write/2, update/1, duplicate/1]).
+-export([start/4, stop/1, read/2, write/2, update/2, duplicate/1]).
 
 % --------- %
 % Interface %
@@ -66,8 +66,11 @@ write(ViewPid, Args) -> ViewPid ! {write, Args}, ok.
 %
 % ViewPid
 %		The view that should start updating.
+% Tag
+%		An extra tag to append to the update_finished
+%		notification.
 %
-update(ViewPid) -> ViewPid ! start_update, ok.
+update(ViewPid, Tag) -> ViewPid ! {start_update, Tag}, ok.
 
 % ----------- %
 % Duplication %
@@ -109,6 +112,7 @@ readLoop(Monitor, ReadFunc, WriteFunc, Data) ->
 	receive
 		{read, Args} -> 
 			ReadFunc(Data, Args), 
+			viewGroup:readFinished(Monitor),
 			readLoop(Monitor, ReadFunc, WriteFunc, Data);
 		{state, Dest} ->
 			{messages, Lst} = erlang:process_info(self(), messages),
@@ -125,19 +129,19 @@ readLoop(Monitor, ReadFunc, WriteFunc, Data) ->
 				{messages, Lst} = erlang:process_info(self(), messages),
 				Dest ! {state, {Monitor, ReadFunc, WriteFunc, Data}, Lst},
 				readLoop(Monitor, ReadFunc, WriteFunc, Data);
-			start_update -> 
-				updateLoop(Monitor, ReadFunc, WriteFunc, Data, 0);
+			{start_update, Tag} -> 
+				updateLoop(Monitor, ReadFunc, WriteFunc, Data, Tag);
 			stop -> finished
 		end
 	end.
 
-updateLoop(Monitor, ReadFunc, WriteFunc, Data, Writes) ->
+updateLoop(Monitor, ReadFunc, WriteFunc, Data, Tag) ->
 	receive
 		{write, Args} ->
 			New_Data = WriteFunc(Data, Args),
-			updateLoop(Monitor, ReadFunc, WriteFunc, New_Data, Writes + 1)
+			updateLoop(Monitor, ReadFunc, WriteFunc, New_Data, Tag)
 	after 0 ->
-		viewGroup:updateFinished(Monitor, Writes),
+		viewGroup:updateFinished(Monitor, Tag),
 		readLoop(Monitor, ReadFunc, WriteFunc, Data)
 	end.
 
@@ -168,7 +172,7 @@ viewOrder_test() ->
 		fun(El) -> write(V, El) end,
 		lists:seq(1, 10)),
 
-	update(V),
+	update(V, tag),
 
 	% Wait since read requests have priority
 	timer:sleep(500),

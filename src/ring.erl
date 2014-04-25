@@ -5,7 +5,7 @@
 % This module implements a ring ADT.
 
 -module(ring).
--export([create/0, empty/1, singleEl/1, insert/2, current/1, previous/1, turn/1, map/2, filter/2]).
+-export([create/0, empty/1, singleEl/1, insert/2, current/1, setCurrent/2, previous/1, turn/1, map/2, filter/2]).
 
 % -------- %
 % Ring ADT %
@@ -25,6 +25,9 @@ insert(Item, {L,R}) -> {[Item|L], R}.
 current({[],[]}) -> empty;
 current({_, [H|_]}) -> H.
 
+setCurrent(_, {[], []}) -> empty;
+setCurrent(I, {L, [_|T]}) -> {L, [I|T]}.
+
 previous({[], []}) -> empty;
 previous({[], [I]}) -> I;
 previous({[H|_], _}) -> H.
@@ -39,7 +42,9 @@ map(F, {L, R}) -> {lists:map(F, L), lists:map(F, R)}.
 filter(F, {L,R}) -> 
 	case {lists:filter(F, L), lists:filter(F, R)} of
 		{[], []} -> {[],[]};
-		{LF, []} -> {[], lists:reverse(LF)};
+		{[H],[]} -> {[], [H]};
+		{[H|T], []} -> {[H], lists:reverse(T)};
+		{[], [H|T]} -> {lists:reverse(T), [H]};
 		{LF, RF} -> {LF, RF}
 	end.
 
