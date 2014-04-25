@@ -53,7 +53,15 @@ addSubscription(Sender, UserId, SubId) ->
 	Sender ! {subscribed, UserId, SubId},
 	spawn(fun () -> dispatchSubscription(UserId, SubId) end).
 
-dispatchSubscription(UserId, SubId) -> ok.
+dispatchSubscription(UserId, SubId) ->
+	% Add subscriber + follower
+	userView:addSubscription(UserId, SubId),
+	userView:addFollower(SubId, UserId),
+
+	% Add all previous tweets by this user.
+	tweetView:read(tweets, SubId, self(), 0),
+	Tweets = receive {tweets, Lst} -> Lst end,
+	lists:foreach(fun(T) -> tweetView:write(timeline, UserId, T) end, Tweets).
 
 % ------- %
 % Handler %
