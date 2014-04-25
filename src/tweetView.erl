@@ -9,10 +9,6 @@
 -module(tweetView).
 -export([start/1, read/4, write/2]).
 
-% The amount of elements on a
-% single page.
--define(PAGE_LENGTH, 10).
-
 % --------- %
 % Interface %
 % --------- %
@@ -87,24 +83,6 @@ sendData(Dest, Tag, Data, Page) ->
 % ---- %
 
 -include_lib("eunit/include/eunit.hrl").
-
-order_test() ->
-	V = spawn(tweetView, start, [spawn(fun() -> ok end)]),
-	T1 = tweet:create(0, "First!"),
-	T2 = tweet:create(0, "Second"),
-	T3 = tweet:create(0, "Last:("),
-
-	write(V, T2),
-	write(V, T1),
-	write(V, T3),
-
-	view:update(V, tag),
-	timer:sleep(500),
-	read(V, self(), tweets, 0),
-
-	receive
-		{tweets, Lst} -> ?assertMatch([T3, T2, T1], Lst)
-	end.
 
 pages_test() ->
 	V = spawn(fun() -> view:start(
