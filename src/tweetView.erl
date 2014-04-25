@@ -23,7 +23,7 @@
 %		The id of the user that this view belongs to.
 %
 start(Type, UserId) -> viewGroup:create(
-	Type ++ integer_to_list(UserId),
+	atom_to_list(Type) ++ integer_to_list(UserId),
 	fun(Data, {Dest, Tag, Page}) -> sendData(Dest, Tag, Data, Page) end,
 	fun(Data, {Tweet}) -> tweet:insert(Tweet, Data) end,
 	[]
