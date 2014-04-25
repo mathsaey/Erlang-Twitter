@@ -7,7 +7,7 @@
 % fetching lists of tweets.
 
 -module(tweetView).
--export([start/1, read/4, write/2]).
+-export([start/2, read/4, write/3]).
 
 % --------- %
 % Interface %
@@ -16,8 +16,14 @@
 % Start the tweet view.
 % Simply starts a view with the correct 
 % read and write functions.
-start(Manager) -> view:start(
-	Manager,
+%
+% Type
+%		The type of tweet view, timeline or tweets
+% UserId
+%		The id of the user that this view belongs to.
+%
+start(Type, UserId) -> viewGroup:create(
+	Type ++ integer_to_list(UserId),
 	fun(Data, {Dest, Tag, Page}) -> sendData(Dest, Tag, Data, Page) end,
 	fun(Data, {Tweet}) -> tweet:insert(Tweet, Data) end,
 	[]
@@ -25,29 +31,33 @@ start(Manager) -> view:start(
 
 % Send a read request to a tweet view.
 %
-% ViewPid
-% 	The view to send the request to.
+% Type
+%		The type of tweet view, timeline or usertweets
+% UserId
+%		The id of the user that this view belongs to.
 % DestPid
 % 	The Pid of the process waiting for a reply.
-% Tag
-% 	A tag (an atom) that will be added to the reply.
-% 	sent to DestPid
 % Page
 % 	The page to fetch.
 % 	Fetches __all__ the data if the page is 0.
 % 	An empty list is returned if the page does not exist.
 %
-read(ViewPid, DestPid, Tag, Page) -> view:read(ViewPid, {DestPid, Tag, Page}).
-
+read(Type, Id, DestPid, Page) -> 
+	Name = atom_to_list(Type) ++ integer_to_list(Id),
+	viewGroup:read(Name, {DestPid, Type, Page}).
 
 % Update the contents of a view.
 %
-% ViewPid
-% 	The view to update.
+% Type
+%		The type of tweet view, timeline or usertweets
+% UserId
+%		The id of the user that this view belongs to.
 % Tweet
 % 	The tweet to add to the view.
 %
-write(ViewPid, Tweet) -> view:write(ViewPid, {Tweet}).
+write(Type, Id, Tweet) -> 
+	Name = atom_to_list(Type) ++ integer_to_list(Id),
+	viewGroup:write(Name, {Tweet}).
 
 % ----------- %
 % Convenience %
@@ -67,16 +77,8 @@ write(ViewPid, Tweet) -> view:write(ViewPid, {Tweet}).
 %	Fetches __all__ the data if the page is 0.
 %	An empty list is returned if the page does not exist.
 %
-sendData(Dest, Tag, Data, 0) -> Dest ! {Tag, Data};
-sendData(Dest, Tag, Data, 1) -> Dest ! {Tag, lists:sublist(Data, ?PAGE_LENGTH)};
-sendData(Dest, Tag, Data, Page) -> 
-	Start_idx = ((Page - 1) * ?PAGE_LENGTH) + 1,
-	Page_content = 
-		try   lists:sublist(Data, Start_idx, ?PAGE_LENGTH)
-		catch error:function_clause -> [] 
-		end,
-	Dest ! {Tag, Page_content}.
-
+sendData(Dest, Tag, Data, Page) ->
+	Dest ! {Tag, tweet:getPage(Data, Page)}.
 
 % ---- %
 % Test %
@@ -84,38 +86,19 @@ sendData(Dest, Tag, Data, Page) ->
 
 -include_lib("eunit/include/eunit.hrl").
 
-pages_test() ->
-	V = spawn(fun() -> view:start(
-		spawn(fun() -> ok end),
-		fun(Data, {Dest, Tag, Page}) -> sendData(Dest, Tag, Data, Page) end,
-		fun(Data, New) -> [New] ++ Data end,
-		[])
-	end),
+basic_test() ->
+	start("tweets", 0),
+	read(tweets, 0, self(), 0),
+	T = tweet:create(0, "No fun allowed"),
 
-	L = lists:seq(1, 100),
-	R = lists:reverse(L),
+	receive
+		Empty -> ?assertMatch({tweets, []}, Empty)
+	end,
 
-	lists:foreach(fun(El) -> view:write(V, El) end, L),
-
-	view:update(V, tag),
+	write(tweets, 0, T),
 	timer:sleep(500),
 
-	read(V, self(), all, 0),
+	read(tweets, 0, self(), 0),
 	receive
-		{all, DataAll} -> ?assertMatch(R, DataAll)
-	end,
-
-	read(V, self(), empty, 20),
-	receive
-		{empty, DataEmpty} -> ?assertMatch([], DataEmpty)
-	end,
-
-	read(V, self(), first, 1),
-	receive
-		{first, Data1} -> ?assertMatch([100, 99, 98, 97, 96, 95, 94, 93, 92, 91], Data1)
-	end,
-
-	read(V, self(), fourth, 4),
-	receive
-		{fourth, Data4} -> ?assertMatch([70, 69, 68, 67, 66, 65, 64, 63, 62, 61], Data4)
+		Data -> ?assertMatch({tweets, [T]}, Data)
 	end.
