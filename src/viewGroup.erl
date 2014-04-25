@@ -30,14 +30,14 @@ create(Name, ReadFunc, WriteFunc, Data) ->
 	waitForGroup(Name).
 
 read(Name, Args) -> 
-	Atom = list_to_atom(Name),
+	Atom = list_to_existing_atom(Name),
 	View = pg2:get_closest_pid(Name),
 
 	view:read(View, Args),
 	Atom ! read_start.
 
 write(Name, Args) ->
-	Atom = list_to_atom(Name), 
+	Atom = list_to_existing_atom(Name), 
 	Atom ! {write, Args}.
 
 % ------------- %
@@ -92,7 +92,7 @@ deleteView(View, Ring) -> ring:filter(fun({P, _}) -> P /= View end, Ring).
 % them as changed.
 setFlags(Ring, Args) -> ring:map(
 	fun
-		({P, updating}) -> view:write(P, Args);
+		({P, updating}) -> view:write(P, Args), {P, updating};
 		({P, _}) -> view:write(P, Args), {P, dirty} 
 	end, 
 	Ring).
@@ -129,7 +129,6 @@ updateSingle(Ring) ->
 			view:update(V, no_add), 
 			ring:setCurrent({V, updating}, Ring)
 	end.
-
 
 % ------------- %
 % Group Monitor %

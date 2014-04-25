@@ -7,7 +7,7 @@
 % fetching user data
 
 -module(userView).
--export([start/2, addFollower/2, addSubcription/2]).
+-export([start/1, addFollower/2, addSubcription/2]).
 -export([getId/2, getName/2, getFollowers/2, getSubscriptions/2]).
 
 % --------- %
@@ -15,28 +15,35 @@
 % --------- %
 
 % Start a new userview
-start(User, Manager) -> view:start(
-	Manager,
+start(User) -> viewGroup:create(
+	"usr" ++ integer_to_list(account:id(User)),
 	fun(Data, {Destination, Tag}) -> readData(Data, Destination, Tag) end,
 	fun(Data, {Tag, New}) -> updateData(Data, New, Tag) end,
 	User
 	).
 
 % Add a follower to a user view.
-addFollower(ViewPid, Follower) -> view:write(ViewPid, {follower, Follower}).
+addFollower(Id, Follower) -> write(Id, {follower, Follower}).
 
 % Add a subscription to a user view.
-addSubcription(ViewPid, Subscription) -> view:write(ViewPid, {subscription, Subscription}).
+addSubcription(Id, Subscription) -> write(Id, {subscription, Subscription}).
 
 % Get various user elements from a view.
-getId(ViewPid, Destination) -> view:read(ViewPid, {Destination, id}).
-getName(ViewPid, Destination) -> view:read(ViewPid, {Destination, name}).
-getFollowers(ViewPid, Destination) -> view:read(ViewPid, {Destination, followers}).
-getSubscriptions(ViewPid, Destination) -> view:read(ViewPid, {Destination, subcriptions}).
+getId(Id, Destination) -> read(Id, {Destination, id}).
+getName(Id, Destination) -> read(Id, {Destination, name}).
+getFollowers(Id, Destination) -> read(Id, {Destination, followers}).
+getSubscriptions(Id, Destination) -> read(Id, {Destination, subcriptions}).
 
 % ----------- %
 % Convenience %
 % ----------- %
+
+read(Id, Args) -> 
+	Name = "usr" ++ integer_to_list(Id),
+	viewGroup:read(Name, Args).
+write(Id, Args) -> 
+	Name = "usr" ++ integer_to_list(Id),
+	viewGroup:write(Name, Args).
 
 updateData(Data, New, follower) -> account:addFollower(Data, New);
 updateData(Data, New, subscription) -> account:addSubcription(Data, New).
@@ -54,29 +61,28 @@ readData(Data, Dest, subcriptions) -> Dest ! {subcriptions, account:subscription
 
 basic_test() ->
 	A = account:create(0, "Mathijs"),
-	V = spawn(fun() -> start(A, spawn(fun() -> ok end)) end),
+	start(A),
 
-	getId(V, self()),
+	getId(0, self()),
 	receive {id, Id} -> ?assertMatch(0, Id) end,
 
-	getName(V, self()),
+	getName(0, self()),
 	receive {name, Name} -> ?assertMatch("Mathijs", Name) end,
 
-	getFollowers(V, self()),
+	getFollowers(0, self()),
 	receive {followers, F} -> ?assertMatch([], F) end,
 
-	getSubscriptions(V, self()),
+	getSubscriptions(0, self()),
 	receive {subcriptions, S} -> ?assertMatch([], S) end,
 
-	addFollower(V, 1),
-	addFollower(V, 2),
-	addSubcription(V, 3),
-	addSubcription(V, 4),
+	addFollower(0, 1),
+	addFollower(0, 2),
+	addSubcription(0, 3),
+	addSubcription(0, 4),
 
-	view:update(V, tag),
 	timer:sleep(500),
 
-	getFollowers(V, self()),
+	getFollowers(0, self()),
 	receive {followers, FLst} -> ?assertMatch([2,1], FLst) end,
-	getSubscriptions(V, self()),
+	getSubscriptions(0, self()),
 	receive {subcriptions, SLst} -> ?assertMatch([4,3], SLst) end.
