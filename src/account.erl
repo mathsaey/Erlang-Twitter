@@ -8,21 +8,20 @@
 % module name.
 
 -module(account).
--export([create/2]).
+-export([create/1]).
 -export([addSubcription/2, addFollower/2]).
--export([name/1, id/1, subscriptions/1, followers/1]).
+-export([id/1, subscriptions/1, followers/1]).
 
--record (user,  {id, name, subscriptions = [], followers = []}).
+-record (user,  {id, subscriptions = [], followers = []}).
 
 % Create a user. 
 %
 % Id
 %	The unique identifier for the user.
-%	The module creating the user should be reponsible
+%	The module creating the user is reponsible
 %	for guaranteeing the uniqueness of the id.
-% Name
-%	The name of the user, a string.
-create(Id, Name) -> #user{id = Id, name = Name}.
+%
+create(Id) -> #user{id = Id}.
 
 % Getters
 % -------
@@ -32,9 +31,6 @@ subscriptions(User) -> User#user.subscriptions.
 
 % Get the followers of a user.
 followers(User) -> User#user.followers.
-
-% Get the name of a user.
-name(User) -> User#user.name.
 
 % Get the id of a user.
 id(User) -> User#user.id.
