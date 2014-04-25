@@ -27,8 +27,7 @@
 get_timeline(ServerPid, UserId, Page) ->
 	ServerPid ! {self(), get_timeline, UserId, Page},
 	receive
-		{ServerPid, timeline, UserId, Page, Timeline} ->
-			Timeline
+		{timeline, Timeline} -> Timeline
 	end.
 
 % Request a page of tweets of a particular user.
@@ -38,8 +37,7 @@ get_timeline(ServerPid, UserId, Page) ->
 get_tweets(ServerPid, UserId, Page) ->
 	ServerPid ! {self(), get_tweets, UserId, Page},
 	receive
-		{ServerPid, tweets, UserId, Page, Tweets} ->
-			Tweets
+		{tweets, Tweets} -> Tweets
 	end.
 
 % Submit a tweet for a user.
@@ -48,6 +46,5 @@ get_tweets(ServerPid, UserId, Page) ->
 tweet(ServerPid, UserId, Tweet) ->
 	ServerPid ! {self(), tweet, UserId, Tweet},
 	receive
-		{ServerPid, tweet_accepted, UserId, Timestamp} ->
-			Timestamp
+		{tweet_accepted, Timestamp} -> Timestamp
 	end.
