@@ -87,7 +87,7 @@ sendData(Dest, Tag, Data, Page) ->
 -include_lib("eunit/include/eunit.hrl").
 
 basic_test() ->
-	start("tweets", 0),
+	start(tweets, 0),
 	read(tweets, 0, self(), 0),
 	T = tweet:create(0, "No fun allowed"),
 
