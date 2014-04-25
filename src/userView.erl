@@ -8,7 +8,7 @@
 
 -module(userView).
 -export([start/1, addFollower/2, addSubcription/2]).
--export([getId/2, getFollowers/2, getSubscriptions/2]).
+-export([getFollowers/1, getSubscriptions/1]).
 
 % --------- %
 % Interface %
@@ -28,10 +28,16 @@ addFollower(Id, Follower) -> write(Id, {follower, Follower}).
 % Add a subscription to a user view.
 addSubcription(Id, Subscription) -> write(Id, {subscription, Subscription}).
 
-% Get various user elements from a view.
-getId(Id, Destination) -> read(Id, {Destination, id}).
-getFollowers(Id, Destination) -> read(Id, {Destination, followers}).
-getSubscriptions(Id, Destination) -> read(Id, {Destination, subcriptions}).
+% Get various user data from a view,
+% and wait for the reply.
+%
+getFollowers(Id) -> 
+	read(Id, {self(), followers}),
+	receive {followers, Lst} -> Lst end.
+
+getSubscriptions(Id) ->
+	read(Id, {self(), subcriptions}),
+	receive {subcriptions, Lst} -> Lst end.
 
 % ----------- %
 % Convenience %
@@ -61,14 +67,8 @@ basic_test() ->
 	A = account:create(0),
 	start(A),
 
-	getId(0, self()),
-	receive {id, Id} -> ?assertMatch(0, Id) end,
-
-	getFollowers(0, self()),
-	receive {followers, F} -> ?assertMatch([], F) end,
-
-	getSubscriptions(0, self()),
-	receive {subcriptions, S} -> ?assertMatch([], S) end,
+	?assertMatch([], getFollowers(0)),
+	?assertMatch([], getSubscriptions(0)),
 
 	addFollower(0, 1),
 	addFollower(0, 2),
@@ -77,7 +77,5 @@ basic_test() ->
 
 	timer:sleep(500),
 
-	getFollowers(0, self()),
-	receive {followers, FLst} -> ?assertMatch([2,1], FLst) end,
-	getSubscriptions(0, self()),
-	receive {subcriptions, SLst} -> ?assertMatch([4,3], SLst) end.
+	?assertMatch([2,1], getFollowers(0)),
+	?assertMatch([4,3], getSubscriptions(0)).
