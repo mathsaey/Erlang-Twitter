@@ -11,34 +11,45 @@
 % Ring ADT %
 % -------- %
 
+% Create a ring
 create() -> {[],[]}.
 
+% See if the ring is empty
 empty({[],[]}) -> true;
 empty(_) -> false.
 
+% Check if the ring contains more than a single element.
 singleEl({[], [_]}) -> true;
 singleEl(_) -> false.
 
+% Add an item to the ring, the item is added as the
+% previous item of the ring.
 insert(Item, {[], []}) -> {[], [Item]};
 insert(Item, {L,R}) -> {[Item|L], R}.
 
+% Return the current item 
 current({[],[]}) -> empty;
 current({_, [H|_]}) -> H.
 
+% Change the current item of the ring
 setCurrent(_, {[], []}) -> empty;
 setCurrent(I, {L, [_|T]}) -> {L, [I|T]}.
 
+% Return the previous item
 previous({[], []}) -> empty;
 previous({[], [I]}) -> I;
 previous({[H|_], _}) -> H.
 
+% "Rotate" the ring.
 turn({[],[]}) -> {[],[]};
 turn({[],[I]}) -> {[],[I]};
 turn({L, [R]}) -> {[R], lists:reverse(L)};
 turn({L, [H|T]}) -> {[H|L], T}.
 
+% Perform a map operation over all the elements in the ring
 map(F, {L, R}) -> {lists:map(F, L), lists:map(F, R)}.
 
+% Filter out elements in the ring
 filter(F, {L,R}) -> 
 	case {lists:filter(F, L), lists:filter(F, R)} of
 		{[], []} -> {[],[]};

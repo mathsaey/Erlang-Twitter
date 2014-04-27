@@ -12,8 +12,11 @@
 % --------- %
 
 initialize() ->
-	startGenerator(), ok.
+	startGenerator(), 
+	ok.
 
+% Start the required views for a user
+% and create an entry process for that user.
 registerUser() ->
 	Id = getId(),
 	U = account:create(Id),
@@ -26,6 +29,7 @@ registerUser() ->
 	% Start entry process
 	{Id, spawn(fun() -> handler() end)}.
 
+% Add a subscription
 subscribe(ServerPid, UserId, SubId) ->
     ServerPid ! {self(), subscribe, UserId, SubId},
     receive {subscribed, UserId, SubId} -> ok end.

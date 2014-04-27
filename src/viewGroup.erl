@@ -14,7 +14,7 @@
 
 % The amount of requests/view before
 % new views will be created.
--define(REQUEST_UPPER_LIMIT, 10).
+-define(REQUEST_UPPER_LIMIT, 50).
 
 % ----------------- %
 % External Requests %
@@ -25,8 +25,9 @@ create(Name, ReadFunc, WriteFunc, Data) ->
 	pg2:create(Name),
 
 	Monitor = spawn_link(fun() -> monitorLoop(Name, ring:create(), 0, 1, 0) end),
-	spawn_link(fun() -> view:start(Monitor, ReadFunc, WriteFunc, Data) end),
 	register(Atom, Monitor),
+
+	spawn_link(fun() -> view:start(Monitor, ReadFunc, WriteFunc, Data) end),
 	waitForGroup(Name).
 
 read(Name, Args) -> 
@@ -77,7 +78,7 @@ startFinished(Monitor, View) -> Monitor ! {start_finished, View}, ok.
 % views before returning.
 waitForGroup(Name) ->
 	case pg2:get_members(Name) of
-		[] -> timer:sleep(100);
+		[] -> waitForGroup(Name);
 		_ -> ok
 	end.
 
